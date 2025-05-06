@@ -7,4 +7,5 @@ BONOBO is a Shiny interactive web application that analyzes and visualizes metag
 ```bash
 # run bonobo
 Rscript -e "shiny::runApp('app.R', port=5000, host='0.0.0.0')"
+/usr/lib64/R/bin/Rscript -e "shiny::runApp('app.R', port=5000, host='0.0.0.0')"
 ```
