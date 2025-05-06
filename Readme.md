@@ -1,4 +1,4 @@
-# BONOBO  <img src="man/figures/logo.png" align="right" width=120 height=139 alt="" />
+# BONOBO  <img src="www/bonobo.png" align="right" width=120 height=139 alt="" />
 
 BONOBO is a Shiny interactive web application that analyzes and visualizes metagenomics classification results from tools like Kraken2 and compares them to multi-BAM file alignments. It facilitates intuitive comparison and overlay of organism-level taxonomic classifications and sequencing alignment data across multiple samples.
 ```bash
