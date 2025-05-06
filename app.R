@@ -4,6 +4,7 @@ library(DT)
 library(dplyr)
 library(shinycssloaders)
 library(shinydisconnect)
+options(shiny.maxRequestSize = 100 * 1024^2)  # up to 100 Mb
 
 # Load taxonomy file
 taxonomy <- readRDS("gtdb_taxonomy.rds")
@@ -26,10 +27,19 @@ ui <- fluidPage(
         width: 250px;
         height: auto;
       }
+       #headerImageLeft {
+        position: absolute;
+        top: 10px;
+        left: 10px;
+        width: 100px;
+        height: auto;
+      }
     "))
   ),
 
   img(src = "chu.png", id = "headerImage"),
+    # Second image on the left
+  img(src = "bonobo.png", id = "headerImageLeft"),
 
   titlePanel("Multi-BAM Paired-End Summary"),
   fileInput("bamfiles", "Upload BAM Files", accept = ".bam", multiple = TRUE),
