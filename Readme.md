@@ -1,2 +1,1 @@
-# Multibam viewer for metagenomic bam files
-blablablblablabl
+BONOBO is a Shiny-based interactive web application that analyzes and visualizes metagenomics classification results from tools like Kraken2 and compares them to multi-BAM file alignments. It facilitates intuitive comparison and overlay of organism-level taxonomic classifications and sequencing alignment data across multiple samples.
