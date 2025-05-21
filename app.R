@@ -2,8 +2,10 @@ library(shiny)
 library(Rsamtools)
 library(DT)
 library(dplyr)
+library(tidyr)
 library(shinycssloaders)
 library(shinydisconnect)
+library(magrittr)
 options(shiny.maxRequestSize = 100 * 1024^2)  # up to 100 Mb
 
 # Load taxonomy file
@@ -11,7 +13,7 @@ taxonomy <- readRDS("gtdb_taxonomy.rds")
 
 ui <- fluidPage(
   disconnectMessage(text = "😵 Wi-Fi faceplanted. Refresh to revive!", refresh = "Wake it up"),
-  actionButton("disconnect", "Leave"),
+  
   tags$head(
     tags$style(HTML("
       table.dataTable tbody td {
@@ -27,23 +29,31 @@ ui <- fluidPage(
         width: 250px;
         height: auto;
       }
-       #headerImageLeft {
+      #headerImageLeft {
         position: absolute;
         top: 10px;
         left: 10px;
         width: 100px;
         height: auto;
       }
+      .content-wrapper {
+        padding-left: 120px;  /* Enough space to avoid the monkey logo */
+        padding-top: 20px;
+      }
     "))
   ),
 
+  # Logos
   img(src = "chu.png", id = "headerImage"),
-    # Second image on the left
   img(src = "bonobo.png", id = "headerImageLeft"),
 
-  titlePanel("Multi-BAM Paired-End Summary"),
-  fileInput("bamfiles", "Upload BAM Files", accept = ".bam", multiple = TRUE),
-  uiOutput("tabs_ui")
+  # UI elements in a padded wrapper
+  div(class = "content-wrapper",
+    actionButton("disconnect", "Leave"),
+    titlePanel("Multi-BAM Paired-End Summary"),
+    fileInput("bamfiles", "Upload BAM Files", accept = ".bam", multiple = TRUE),
+    uiOutput("tabs_ui")
+  )
 )
 
 server <- function(input, output, session) {
@@ -160,9 +170,9 @@ output$tabs_ui <- renderUI({
         output[[paste0("table_", name)]] <- renderDT({
           req(input[[paste0("mapq_", name)]])
           df_filtered <- df %>%
-            filter(Quality >= input[[paste0("mapq_", name)]]) %>% select(-Flag) %>%
-            merge(taxonomy, ., by = "Reference") %>% select(Read,Taxonomy,Reference, Position, Quality)
-          datatable(df_filtered, options = list(pageLength = 10), rownames = FALSE)
+            filter(Quality >= input[[paste0("mapq_", name)]]) %>% select(-Flag) %>% # nolint: line_length_linter.
+            merge(taxonomy, ., by = "Reference") %>% select(Read,Taxonomy,Reference, Position, Quality) # nolint: line_length_linter.
+          datatable(df_filtered, options = list(pageLength = 10), rownames = FALSE) # nolint: line_length_linter.
         })
       })
     }
@@ -183,15 +193,24 @@ output$tabs_ui <- renderUI({
 
       if (length(count_list) == 0) return(NULL)
 
-      merged_counts <- Reduce(function(x, y) merge(x, y, by = "Reference", all = TRUE), count_list)
+      merged_counts <- Reduce(function(x, y) merge(x, y, by = "Reference", all = TRUE), count_list) # nolint: line_length_linter.
       merged_counts[is.na(merged_counts)] <- 0
-
       summary_with_tax <- merge(taxonomy, merged_counts, by = "Reference")
       summary_with_tax$Total <- rowSums(summary_with_tax[, -(1:2)])
       summary_with_tax <- summary_with_tax[summary_with_tax$Total > 0, ]
       summary_with_tax$Total <- NULL
-      summary_with_tax <- summary_with_tax[order(-rowSums(summary_with_tax[, -(1:2)])), ]
-
+      #summary_with_tax <- summary_with_tax[order(-rowSums(summary_with_tax[, -(1:2)])), ] # nolint: line_length_linter.
+      summary_with_tax <- separate(summary_with_tax, Taxonomy, c(
+        "Kingdom",
+        "Phylum",
+        "Class",
+        "Order",
+        "Family",
+        "Genus",
+        "Species"
+      ), sep = ";", extra = "merge", remove = FALSE) %>% mutate(Taxon = gsub("s__", "", Species)) %>%
+      select(-(Kingdom:Species)) %>% rename("Lineage" = Taxonomy) 
+      summary_with_tax <- summary_with_tax[, c("Taxon", setdiff(names(summary_with_tax), c("Reference", "Lineage", "Taxon")), c("Reference", "Lineage"))] # nolint: line_length_linter.
       datatable(
         summary_with_tax,
         options = list(
