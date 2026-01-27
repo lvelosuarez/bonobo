@@ -26,4 +26,7 @@ Thumbs.db
 [Dd]esktop.ini
 
 ## Text Editors
-.vscode
+.vscode%
+
+## Others
+.virtual_documents/
