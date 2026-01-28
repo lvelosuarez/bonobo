@@ -13,8 +13,8 @@ def _():
 
 @app.cell
 def _():
-    KRAKEN = "/mnt/san/microbio/apps/bonobo/scripts/intercalibration/cub.tsv"
-    BAM = "/mnt/san/microbio/apps/bonobo/scripts/intercalibration/bam.tsv"
+    KRAKEN = "/mnt/san/microbio/apps/bonobo/intercalibration/cub.tsv"
+    BAM = "/mnt/san/microbio/apps/bonobo/intercalibration/bam.tsv"
     return BAM, KRAKEN
 
 
@@ -42,7 +42,7 @@ def _(KRAKEN, pl):
         )
         # .filter(pl.col("sample") != "MG-Run35-Ech-12")
     )
-    return kraken, kraken_sel
+    return (kraken_sel,)
 
 
 @app.cell
@@ -59,7 +59,7 @@ def _(BAM, pl):
         )
         .drop("ncbi_taxid")
     )
-    return bam, bam_sel
+    return (bam_sel,)
 
 
 @app.cell
@@ -104,6 +104,12 @@ def _(bam_sel, kraken_sel, pl):
         .sort(by=["sample", "bam_reads", "kraken_reads"], descending=[False, True, True])
     )
     return (merged,)
+
+
+@app.cell
+def _(merged, pl):
+    merged.filter(pl.col("sample").str.contains("5_"))
+    return
 
 
 @app.cell
