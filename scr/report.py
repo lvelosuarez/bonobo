@@ -14,21 +14,19 @@ Dependencies:
 """
 
 import argparse
-from pathlib import Path
 import html
+from pathlib import Path
 
 import numpy as np
 import pandas as pd
-
 
 # ---------------------------------------------------------------------
 # CLI
 # ---------------------------------------------------------------------
 
+
 def parse_args():
-    p = argparse.ArgumentParser(
-        description="Generate an HTML report from SPARKI-like results."
-    )
+    p = argparse.ArgumentParser(description="Generate an HTML report from SPARKI-like results.")
     p.add_argument("--input", required=True, help="SPARKI-like TSV file")
     p.add_argument("--output", required=True, help="Output HTML report")
     p.add_argument("--top-n", type=int, default=500)
@@ -51,6 +49,7 @@ def parse_args():
 # ---------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------
+
 
 def choose_stats_columns(df):
     """
@@ -80,10 +79,7 @@ def load_pathogen_panel(path):
 
     for col in ["organism_name", "organism", "name"]:
         if col in panel.columns:
-            names |= {
-                str(x).strip().lower()
-                for x in panel[col].dropna().astype(str)
-            }
+            names |= {str(x).strip().lower() for x in panel[col].dropna().astype(str)}
 
     return taxids, names
 
@@ -122,6 +118,7 @@ def confidence_class(conf):
 # HTML
 # ---------------------------------------------------------------------
 
+
 def make_html_report(df, output_path):
     css = """
     <style>
@@ -150,10 +147,7 @@ def make_html_report(df, output_path):
         html_out.append(f"<h2>Sample: {html.escape(str(sample))}</h2>")
         html_out.append("<table>")
         html_out.append(
-            "<tr>"
-            "<th>Organism</th><th>Rank</th><th>Reads</th>"
-            "<th>Coverage %</th><th>p-value</th><th>Confidence</th><th>Panel</th>"
-            "</tr>"
+            "<tr>" "<th>Organism</th><th>Rank</th><th>Reads</th>" "<th>Coverage %</th><th>p-value</th><th>Confidence</th><th>Panel</th>" "</tr>"
         )
 
         for _, r in sub.iterrows():
@@ -183,6 +177,7 @@ def make_html_report(df, output_path):
 # Main
 # ---------------------------------------------------------------------
 
+
 def main():
     args = parse_args()
 
@@ -207,11 +202,7 @@ def main():
         df.loc[df["name"].str.lower().isin(names), "on_pathogen_panel"] = True
 
     # Filter by p-value + coverage
-    df_auto = df[
-        (df[p_col].notna()) &
-        (df[p_col] <= args.max_pvalue) &
-        (df["genome_coverage_estimate"] >= args.min_coverage)
-    ]
+    df_auto = df[(df[p_col].notna()) & (df[p_col] <= args.max_pvalue) & (df["genome_coverage_estimate"] >= args.min_coverage)]
 
     # Force keep pathogen taxa
     df_panel = df[df["on_pathogen_panel"]]
@@ -226,10 +217,14 @@ def main():
     df["genome_coverage_percent_minimizers"] = df["genome_coverage_estimate"] * 100
     df = add_confidence(df, "p_value")
 
-    df = df.sort_values(
-        ["sample", "on_pathogen_panel", "p_value"],
-        ascending=[True, False, True],
-    ).groupby("sample", group_keys=False).head(args.top_n)
+    df = (
+        df.sort_values(
+            ["sample", "on_pathogen_panel", "p_value"],
+            ascending=[True, False, True],
+        )
+        .groupby("sample", group_keys=False)
+        .head(args.top_n)
+    )
 
     df = df.rename(
         columns={

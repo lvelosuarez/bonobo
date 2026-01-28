@@ -16,20 +16,17 @@ Output: summary.tsv
 """
 
 import argparse
-from pathlib import Path
 
 import numpy as np
 import pandas as pd
-
 
 # ---------------------------------------------------------------------
 # CLI
 # ---------------------------------------------------------------------
 
+
 def parse_args():
-    p = argparse.ArgumentParser(
-        description="Summarize cub results into a table."
-    )
+    p = argparse.ArgumentParser(description="Summarize cub results into a table.")
     p.add_argument("--input", required=True, help="cub TSV")
     p.add_argument("--output", required=True, help="Output TSV")
     p.add_argument(
@@ -55,6 +52,7 @@ def parse_args():
 # ---------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------
+
 
 def choose_stats_columns(df):
     """Prefer negative-control stats if present."""
@@ -83,15 +81,10 @@ def load_pathogen_panel(path):
 
     for col in ["organism_name", "organism", "name"]:
         if col in panel.columns:
-            names |= {
-                str(x).strip().lower()
-                for x in panel[col].dropna().astype(str)
-            }
+            names |= {str(x).strip().lower() for x in panel[col].dropna().astype(str)}
 
     if not taxids and not names:
-        raise RuntimeError(
-            "Pathogen panel must contain 'taxid' or 'organism_name'"
-        )
+        raise RuntimeError("Pathogen panel must contain 'taxid' or 'organism_name'")
 
     return taxids, names
 
@@ -99,6 +92,7 @@ def load_pathogen_panel(path):
 # ---------------------------------------------------------------------
 # Main
 # ---------------------------------------------------------------------
+
 
 def main():
     args = parse_args()
@@ -132,17 +126,12 @@ def main():
     df_auto = df.copy()
     df_auto = df_auto[df_auto[p_col].notna()]
     df_auto = df_auto[df_auto[p_col] <= args.max_p]
-    df_auto = df_auto[
-        df_auto["genome_coverage_estimate"].fillna(0.0) >= args.min_coverage
-    ]
+    df_auto = df_auto[df_auto["genome_coverage_estimate"].fillna(0.0) >= args.min_coverage]
 
     # 6) Force-keep pathogen panel taxa
     df_panel = df[df["on_pathogen_panel"]].copy()
 
-    df = (
-        pd.concat([df_auto, df_panel], ignore_index=True)
-        .drop_duplicates(subset=["sample", "taxid"])
-    )
+    df = pd.concat([df_auto, df_panel], ignore_index=True).drop_duplicates(subset=["sample", "taxid"])
 
     if df.empty:
         print("No taxa to report.")
@@ -207,12 +196,8 @@ def main():
     out = out.drop(columns=["_sample_num"])
 
     # 11) Rounding for readability
-    out["relative_abundance_minimizers"] = out[
-        "relative_abundance_minimizers"
-    ].round(10)
-    out["genome_coverage_percent_minimizers"] = out[
-        "genome_coverage_percent_minimizers"
-    ].round(5)
+    out["relative_abundance_minimizers"] = out["relative_abundance_minimizers"].round(10)
+    out["genome_coverage_percent_minimizers"] = out["genome_coverage_percent_minimizers"].round(5)
     out["z_score"] = out["z_score"].round(2)
     out["p_value"] = out["p_value"].apply(lambda x: float(f"{x:.3g}"))
     out["fdr"] = out["fdr"].apply(lambda x: float(f"{x:.3g}"))

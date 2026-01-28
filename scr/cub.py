@@ -34,28 +34,19 @@ import numpy as np
 import pandas as pd
 from scipy.stats import norm
 
-
 # ---------------------------------------------------------------------------
 # Argument parsing
 # ---------------------------------------------------------------------------
 
+
 def parse_args():
-    parser = argparse.ArgumentParser(
-        description=(
-            "Statistical analysis of Kraken2 reports using "
-            "minimizer data, inspect.txt and host organism."
-        )
-    )
+    parser = argparse.ArgumentParser(description=("Statistical analysis of Kraken2 reports using " "minimizer data, inspect.txt and host organism."))
 
     parser.add_argument(
         "--std-reports",
         required=True,
-        help=(
-            "Directory containing Kraken2 standard reports produced with "
-            "--report-minimizer-data."
-        ),
+        help=("Directory containing Kraken2 standard reports produced with " "--report-minimizer-data."),
     )
-
 
     parser.add_argument(
         "--organism",
@@ -70,18 +61,12 @@ def parse_args():
     parser.add_argument(
         "--reference",
         required=True,
-        help=(
-            "Path to Kraken2 DB inspect.txt (output of kraken2-inspect). "
-            "Used to get per-taxon minimizer counts from the DB."
-        ),
+        help=("Path to Kraken2 DB inspect.txt (output of kraken2-inspect). " "Used to get per-taxon minimizer counts from the DB."),
     )
 
     parser.add_argument(
         "--domain",
-        help=(
-            "Comma-separated list of domains of interest "
-            "(e.g. 'Viruses,Bacteria'). Currently not used to filter."
-        ),
+        help=("Comma-separated list of domains of interest " "(e.g. 'Viruses,Bacteria'). Currently not used to filter."),
     )
 
     parser.add_argument(
@@ -114,17 +99,14 @@ def parse_args():
         "--min-prop",
         type=float,
         default=0.0,
-        help=(
-            "Minimum non-host minimizer proportion to keep rows in final "
-            "output (default: 0.0)."
-        ),
+        help=("Minimum non-host minimizer proportion to keep rows in final " "output (default: 0.0)."),
     )
     parser.add_argument(
         "--negative-control",
         help=(
             "Sample name corresponding to a negative control. "
             "If provided, taxa present in this sample will be used "
-         "as a background contamination model."
+            "as a background contamination model."
         ),
     )
 
@@ -135,6 +117,7 @@ def parse_args():
 # ---------------------------------------------------------------------------
 # Utility functions
 # ---------------------------------------------------------------------------
+
 
 def read_samples_to_remove(path):
     if path is None:
@@ -159,6 +142,7 @@ def guess_sample_id(path: Path) -> str:
 # ---------------------------------------------------------------------------
 # Reading Kraken2 reports
 # ---------------------------------------------------------------------------
+
 
 def read_kraken_report(report_path: Path, sample_id: str) -> pd.DataFrame:
     """
@@ -205,7 +189,7 @@ def read_kraken_report(report_path: Path, sample_id: str) -> pd.DataFrame:
             engine="python",
         )
     except Exception as e:
-        raise RuntimeError(f"Error reading report {report_path}: {e}")
+        raise RuntimeError(f"Error reading report {report_path}: {e}") from e
 
     if df.shape[1] != 8:
         raise RuntimeError(
@@ -248,13 +232,9 @@ def load_all_reports(std_reports_dir: str, samples_to_remove: set) -> pd.DataFra
         all_dfs.append(df)
 
     if n_files == 0:
-        raise RuntimeError(
-            f"No suitable report files found in directory: {std_reports_dir}"
-        )
+        raise RuntimeError(f"No suitable report files found in directory: {std_reports_dir}")
     if not all_dfs:
-        raise RuntimeError(
-            "All reports were excluded (possibly due to --samples-to-remove)."
-        )
+        raise RuntimeError("All reports were excluded (possibly due to --samples-to-remove).")
 
     combined = pd.concat(all_dfs, ignore_index=True)
     return combined
@@ -263,6 +243,7 @@ def load_all_reports(std_reports_dir: str, samples_to_remove: set) -> pd.DataFra
 # ---------------------------------------------------------------------------
 # Reading inspect.txt
 # ---------------------------------------------------------------------------
+
 
 def read_inspect(reference_path: str) -> pd.DataFrame:
     """
@@ -324,10 +305,7 @@ def read_inspect(reference_path: str) -> pd.DataFrame:
             )
 
     if not rows:
-        raise RuntimeError(
-            f"Could not parse any rows from inspect.txt at {reference_path} – "
-            f"format may be different than expected."
-        )
+        raise RuntimeError(f"Could not parse any rows from inspect.txt at {reference_path} – " f"format may be different than expected.")
 
     inspect_df = pd.DataFrame(rows)
     return inspect_df
@@ -336,6 +314,7 @@ def read_inspect(reference_path: str) -> pd.DataFrame:
 # ---------------------------------------------------------------------------
 # Taxonomy: names.dmp & nodes.dmp for host handling
 # ---------------------------------------------------------------------------
+
 
 def get_taxonomy_paths(reference_path: Path):
     """
@@ -383,9 +362,7 @@ def find_host_taxid(organism_name: str, names_path: Path) -> str:
                 break
 
     if candidate_taxid is None:
-        raise RuntimeError(
-            f"Could not find scientific name '{organism_name}' in names.dmp at {names_path}"
-        )
+        raise RuntimeError(f"Could not find scientific name '{organism_name}' in names.dmp at {names_path}")
 
     return str(candidate_taxid)
 
@@ -491,6 +468,7 @@ def mark_host_taxa(df: pd.DataFrame, organism: str, reference_path: Path) -> pd.
 # Calculations
 # ---------------------------------------------------------------------------
 
+
 def compute_minimizer_proportions(df: pd.DataFrame) -> pd.DataFrame:
     """
     For each sample, compute total distinct minimizers *excluding host taxa*
@@ -508,22 +486,17 @@ def compute_minimizer_proportions(df: pd.DataFrame) -> pd.DataFrame:
         non_host = df.copy()
         non_host["is_host"] = False
 
-    totals = (
-        non_host.groupby("sample")["distinct_minimizers"]
-        .sum()
-        .rename("total_distinct_minimizers_non_host")
-    )
+    totals = non_host.groupby("sample")["distinct_minimizers"].sum().rename("total_distinct_minimizers_non_host")
 
     df = df.merge(totals, on="sample", how="left")
-    df["total_distinct_minimizers_non_host"] = df[
-        "total_distinct_minimizers_non_host"
-    ].fillna(0.0)
+    df["total_distinct_minimizers_non_host"] = df["total_distinct_minimizers_non_host"].fillna(0.0)
 
     denom = df["total_distinct_minimizers_non_host"].replace(0, np.nan)
     df["minimizer_proportion_sample"] = df["distinct_minimizers"] / denom
     df["minimizer_proportion_sample"] = df["minimizer_proportion_sample"].fillna(0.0)
 
     return df
+
 
 def apply_negative_control(df: pd.DataFrame, neg_sample: str) -> pd.DataFrame:
     """
@@ -534,15 +507,11 @@ def apply_negative_control(df: pd.DataFrame, neg_sample: str) -> pd.DataFrame:
         - signal_over_neg = minimizer_proportion_sample - neg_control_prop
     """
     if neg_sample not in set(df["sample"]):
-        raise RuntimeError(
-            f"Negative control sample '{neg_sample}' not found in samples."
-        )
+        raise RuntimeError(f"Negative control sample '{neg_sample}' not found in samples.")
 
     # Extract negative control proportions
-    neg_df = (
-        df[df["sample"] == neg_sample]
-        [["taxid", "minimizer_proportion_sample"]]
-        .rename(columns={"minimizer_proportion_sample": "neg_control_prop"})
+    neg_df = df[df["sample"] == neg_sample][["taxid", "minimizer_proportion_sample"]].rename(
+        columns={"minimizer_proportion_sample": "neg_control_prop"}
     )
 
     # Merge onto full table
@@ -552,9 +521,7 @@ def apply_negative_control(df: pd.DataFrame, neg_sample: str) -> pd.DataFrame:
     df["neg_control_prop"] = df["neg_control_prop"].fillna(0.0)
 
     # Background-corrected signal
-    df["signal_over_neg"] = (
-        df["minimizer_proportion_sample"] - df["neg_control_prop"]
-    )
+    df["signal_over_neg"] = df["minimizer_proportion_sample"] - df["neg_control_prop"]
 
     # Do not allow negative signal (pure contaminants)
     df.loc[df["signal_over_neg"] < 0, "signal_over_neg"] = 0.0
@@ -654,6 +621,7 @@ def compute_statistics(df: pd.DataFrame) -> pd.DataFrame:
 
     return df
 
+
 def compute_statistics_neg_control(df: pd.DataFrame) -> pd.DataFrame:
     """
     Compute z-scores, p-values and FDR using background-corrected signal
@@ -693,14 +661,13 @@ def compute_statistics_neg_control(df: pd.DataFrame) -> pd.DataFrame:
     work_df["fdr_neg"] = benjamini_hochberg(work_df["p_value_neg"].values)
 
     df = df.merge(
-        work_df[
-            group_cols + ["sample", "z_score_neg", "p_value_neg", "fdr_neg"]
-        ],
+        work_df[group_cols + ["sample", "z_score_neg", "p_value_neg", "fdr_neg"]],
         on=group_cols + ["sample"],
         how="left",
     )
 
     return df
+
 
 def attach_metadata(df: pd.DataFrame, args) -> pd.DataFrame:
     """
@@ -710,9 +677,7 @@ def attach_metadata(df: pd.DataFrame, args) -> pd.DataFrame:
         return df
 
     if args.sample_col is None:
-        raise RuntimeError(
-            "If --metadata is provided, you must also provide --sample-col."
-        )
+        raise RuntimeError("If --metadata is provided, you must also provide --sample-col.")
 
     meta = pd.read_csv(args.metadata)
 
@@ -724,20 +689,17 @@ def attach_metadata(df: pd.DataFrame, args) -> pd.DataFrame:
 
         missing = [c for c in cols_to_keep if c not in meta.columns]
         if missing:
-            raise RuntimeError(
-                f"Columns specified in --columns not found in metadata: {missing}"
-            )
+            raise RuntimeError(f"Columns specified in --columns not found in metadata: {missing}")
         meta = meta[cols_to_keep]
 
     if args.sample_col not in meta.columns:
-        raise RuntimeError(
-            f"--sample-col='{args.sample_col}' not found in metadata columns."
-        )
+        raise RuntimeError(f"--sample-col='{args.sample_col}' not found in metadata columns.")
 
     meta = meta.rename(columns={args.sample_col: "sample"})
     df = df.merge(meta, on="sample", how="left")
 
     return df
+
 
 def filter_to_species_and_above(df: pd.DataFrame) -> pd.DataFrame:
     """
@@ -764,9 +726,11 @@ def filter_to_species_and_above(df: pd.DataFrame) -> pd.DataFrame:
     df = df[df["rank_code"].isin(keep_ranks)].copy()
     return df
 
+
 # ---------------------------------------------------------------------------
 # Main
 # ---------------------------------------------------------------------------
+
 
 def main():
     args = parse_args()
@@ -790,13 +754,15 @@ def main():
     df = mark_host_taxa(df, args.organism, reference_path)
 
     # 4) Drop strain-level / subspecies taxa BEFORE any stats or denominators
-    print("Filtering to species and higher (dropping strains/subspecies)...", file=sys.stderr)
+    print(
+        "Filtering to species and higher (dropping strains/subspecies)...",
+        file=sys.stderr,
+    )
     df = filter_to_species_and_above(df)
 
     # 5) Compute sample-level minimizer proportions (host-excluded denominator)
     print(
-        "Computing minimizer proportions per sample "
-        "(host excluded from denominator)...",
+        "Computing minimizer proportions per sample " "(host excluded from denominator)...",
         file=sys.stderr,
     )
     df = compute_minimizer_proportions(df)
@@ -804,8 +770,7 @@ def main():
     # 5b) Apply negative control, if provided
     if args.negative_control:
         print(
-            f"Applying negative control background from sample "
-            f"'{args.negative_control}'...",
+            f"Applying negative control background from sample " f"'{args.negative_control}'...",
             file=sys.stderr,
         )
         df = apply_negative_control(df, args.negative_control)
@@ -844,8 +809,7 @@ def main():
     # 9b) If negative control is present, compute NC-corrected stats too
     if args.negative_control:
         print(
-            f"Computing statistics with negative-control correction "
-            f"(negative control = '{args.negative_control}')...",
+            f"Computing statistics with negative-control correction " f"(negative control = '{args.negative_control}')...",
             file=sys.stderr,
         )
         df = compute_statistics_neg_control(df)
@@ -867,6 +831,7 @@ def main():
     df.to_csv(out_path, sep="\t", index=False)
 
     print("Done.", file=sys.stderr)
+
 
 if __name__ == "__main__":
     main()

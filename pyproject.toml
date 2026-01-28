@@ -1,0 +1,41 @@
+[project]
+name = "bonobo"
+version = "0.1.0"
+description = "Use python to filter and joint kraken2 and bam files in clinic metagenomic analysis"
+readme = "README.md"
+requires-python = ">=3.11"
+
+# Optional: this is mainly for packaging / `pip install .` later
+dependencies = [
+  "marimo",
+  "ruff",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.ruff]
+line-length = 150
+target-version = "py311"
+src = ["src", "notebooks"]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "B"]
+
+[tool.ruff.lint.per-file-ignores]
+"notebooks/*.py" = ["D"]  # e.g. ignore docstring rules for marimo notebooks
+
+# Language server configuration
+[tool.marimo.language_servers.pylsp]
+enabled = true               # Enable/disable the Python language server
+enable_mypy = true           # Type checking with mypy (enabled by default, if installed)
+enable_ruff = true           # Linting with ruff (enabled by default, if installed)
+enable_flake8 = false        # Linting with flake8
+enable_pydocstyle = false    # Check docstring style
+enable_pylint = false        # Linting with pylint
+enable_pyflakes = false      # Syntax checking with pyflakes
+
+# Diagnostics configuration
+[tool.marimo.diagnostics]
+enabled = true               # Show diagnostics in the editor
