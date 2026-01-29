@@ -40,12 +40,12 @@ from scipy.stats import norm
 
 
 def parse_args():
-    parser = argparse.ArgumentParser(description=("Statistical analysis of Kraken2 reports using " "minimizer data, inspect.txt and host organism."))
+    parser = argparse.ArgumentParser(description=("Statistical analysis of Kraken2 reports using minimizer data, inspect.txt and host organism."))
 
     parser.add_argument(
         "--std-reports",
         required=True,
-        help=("Directory containing Kraken2 standard reports produced with " "--report-minimizer-data."),
+        help=("Directory containing Kraken2 standard reports produced with --report-minimizer-data."),
     )
 
     parser.add_argument(
@@ -61,12 +61,12 @@ def parse_args():
     parser.add_argument(
         "--reference",
         required=True,
-        help=("Path to Kraken2 DB inspect.txt (output of kraken2-inspect). " "Used to get per-taxon minimizer counts from the DB."),
+        help=("Path to Kraken2 DB inspect.txt (output of kraken2-inspect). Used to get per-taxon minimizer counts from the DB."),
     )
 
     parser.add_argument(
         "--domain",
-        help=("Comma-separated list of domains of interest " "(e.g. 'Viruses,Bacteria'). Currently not used to filter."),
+        help=("Comma-separated list of domains of interest (e.g. 'Viruses,Bacteria'). Currently not used to filter."),
     )
 
     parser.add_argument(
@@ -99,7 +99,7 @@ def parse_args():
         "--min-prop",
         type=float,
         default=0.0,
-        help=("Minimum non-host minimizer proportion to keep rows in final " "output (default: 0.0)."),
+        help=("Minimum non-host minimizer proportion to keep rows in final output (default: 0.0)."),
     )
     parser.add_argument(
         "--negative-control",
@@ -305,7 +305,7 @@ def read_inspect(reference_path: str) -> pd.DataFrame:
             )
 
     if not rows:
-        raise RuntimeError(f"Could not parse any rows from inspect.txt at {reference_path} – " f"format may be different than expected.")
+        raise RuntimeError(f"Could not parse any rows from inspect.txt at {reference_path} – format may be different than expected.")
 
     inspect_df = pd.DataFrame(rows)
     return inspect_df
@@ -701,30 +701,52 @@ def attach_metadata(df: pd.DataFrame, args) -> pd.DataFrame:
     return df
 
 
-def filter_to_species_and_above(df: pd.DataFrame) -> pd.DataFrame:
+def filter_to_best_kraken_taxa(df: pd.DataFrame, virus_direct_ratio: float = 0.8) -> pd.DataFrame:
     """
-    Keep only taxa at species level or above (drop strains/subspecies etc.).
+    Select 'best' Kraken taxa for downstream analysis, in a way that
+    mimics what you care about clinically and is similar in spirit to
+    Pavian's clade aggregation.
 
-    Kraken rank codes commonly used:
-        - R: root
-        - D: domain
-        - K: kingdom
-        - P: phylum
-        - C: class
-        - O: order
-        - F: family
-        - G: genus
-        - S: species
-        - S1, subspecies/strain/etc. -> we drop these
+    - Non-viruses:
+        * Keep only species-level rows (rank_code == 'S').
+        * Use fragments_clade as the species-level abundance, which
+          already includes S1/S2/descendants.
 
-    Anything not in the whitelist is removed.
+    - Viruses:
+        * Consider species-like ranks (S, S1, S2).
+        * Keep only nodes where direct reads dominate:
+              fragments_direct / fragments_clade >= virus_direct_ratio
+          This typically keeps the deepest node with real read support
+          (e.g. 'Human adenovirus 5' at rank S2) and drops its ancestors.
     """
     if "rank_code" not in df.columns:
         return df
 
-    keep_ranks = {"S"}
-    df = df[df["rank_code"].isin(keep_ranks)].copy()
-    return df
+    # Mark viruses (simple heuristic; you can refine later with taxonomy)
+    is_virus = df["name"].str.contains("virus", case=False, na=False)
+
+    # ----------------- Non-viruses -----------------
+    non_virus = df[~is_virus].copy()
+    # keep species only
+    non_virus = non_virus[non_virus["rank_code"] == "S"].copy()
+
+    # ----------------- Viruses -----------------
+    viruses = df[is_virus].copy()
+    # keep only species-like ranks
+    viruses = viruses[viruses["rank_code"].isin(["S", "S1", "S2"])].copy()
+
+    if {"fragments_clade", "fragments_direct"}.issubset(viruses.columns):
+        valid = viruses["fragments_clade"] > 0
+        ratio = viruses.loc[valid, "fragments_direct"] / viruses.loc[valid, "fragments_clade"]
+
+        keep_mask = pd.Series(False, index=viruses.index)
+        keep_mask.loc[valid] = ratio >= virus_direct_ratio
+
+        viruses = viruses[keep_mask].copy()
+
+    # Combine back
+    out = pd.concat([non_virus, viruses], ignore_index=True)
+    return out
 
 
 # ---------------------------------------------------------------------------
@@ -758,11 +780,11 @@ def main():
         "Filtering to species and higher (dropping strains/subspecies)...",
         file=sys.stderr,
     )
-    df = filter_to_species_and_above(df)
+    df = filter_to_best_kraken_taxa(df)
 
     # 5) Compute sample-level minimizer proportions (host-excluded denominator)
     print(
-        "Computing minimizer proportions per sample " "(host excluded from denominator)...",
+        "Computing minimizer proportions per sample (host excluded from denominator)...",
         file=sys.stderr,
     )
     df = compute_minimizer_proportions(df)
@@ -770,7 +792,7 @@ def main():
     # 5b) Apply negative control, if provided
     if args.negative_control:
         print(
-            f"Applying negative control background from sample " f"'{args.negative_control}'...",
+            f"Applying negative control background from sample '{args.negative_control}'...",
             file=sys.stderr,
         )
         df = apply_negative_control(df, args.negative_control)
@@ -809,7 +831,7 @@ def main():
     # 9b) If negative control is present, compute NC-corrected stats too
     if args.negative_control:
         print(
-            f"Computing statistics with negative-control correction " f"(negative control = '{args.negative_control}')...",
+            f"Computing statistics with negative-control correction (negative control = '{args.negative_control}')...",
             file=sys.stderr,
         )
         df = compute_statistics_neg_control(df)
